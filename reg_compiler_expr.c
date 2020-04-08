@@ -1,101 +1,65 @@
 #include "AST.h"
 #include "reg_code.h"
-#include "reg_compile.h"
 
-static void printFunc(AST *args);
-
-void compileExpr(int target, AST *p)
+void compileExpression(int target, Object *p)
 {
+    Object *q;
+    Symbol *op;
     int r1,r2;
-    
-    if(p == NULL) return;
+    extern int tmp_counter;
 
-    switch(p->op){
+    switch(p->kind){
     case NUM:
         genCode2(LOADI,target,p->val);
 	return;
     case SYM:
 	compileLoadVar(target,getSymbol(p));
 	return;
-    case EQ_OP:
-	if(target != -1) error("assign has no value");
-	r1 = tmp_counter++; 
-	compileExpr(r1,p->right);
-	compileStoreVar(getSymbol(p->left),r1);
-	return;
-
-    case PLUS_OP:
-	r1 = tmp_counter++; r2 = tmp_counter++;
-	compileExpr(r1,p->left);
-	compileExpr(r2,p->right);
-	genCode3(ADD,target,r1,r2);
-	return;
-    case MINUS_OP:
-	r1 = tmp_counter++; r2 = tmp_counter++;
-	compileExpr(r1,p->left);
-	compileExpr(r2,p->right);
-	genCode3(SUB,target,r1,r2);
-	return;
-    case MUL_OP:
-	r1 = tmp_counter++; r2 = tmp_counter++;
-	compileExpr(r1,p->left);
-	compileExpr(r2,p->right);
-	genCode3(MUL,target,r1,r2);
-	return;
-    case LT_OP:
-	r1 = tmp_counter++; r2 = tmp_counter++;
-	compileExpr(r1,p->left);
-	compileExpr(r2,p->right);
-	genCode3(LT,target,r1,r2);
-	return;
-    case GT_OP:
-	r1 = tmp_counter++; r2 = tmp_counter++;
-	compileExpr(r1,p->left);
-	compileExpr(r2,p->right);
-	genCode3(GT,target,r1,r2);
-	return;
-    case CALL_OP:
-	compileCallFunc(target,getSymbol(p->left),p->right);
-	return;
-
-    case PRINTLN_OP:
-	if(target != -1) error("println has no value");
-	printFunc(p->left);
-	return;
-
-    case GET_ARRAY_OP:
-	/* not implemented */
-    case SET_ARRAY_OP:
-	/* not implemented */
-
-    default:
-	error("unknown operater/statement");
+    case LIST:
+	q = getFirst(p);
+	if(q->kind != SYM) compile_error("bad function or operator\n");
+	op = q->sym;
+	if(op == plusSym){
+	    r1 = tmp_counter++; r2 = tmp_counter++;
+	    compileExpression(r1,getNth(p,1));
+	    compileExpression(r2,getNth(p,2));
+	    genCode3(ADD,target,r1,r2);
+	    return;
+	}
+	if(op == minusSym){
+	    r1 = tmp_counter++; r2 = tmp_counter++;
+	    compileExpression(r1,getNth(p,1));
+	    compileExpression(r2,getNth(p,2));
+	    genCode3(SUB,target,r1,r2);
+	    return;
+	}
+	if(op == mulSym){
+	    r1 = tmp_counter++; r2 = tmp_counter++;
+	    compileExpression(r1,getNth(p,1));
+	    compileExpression(r2,getNth(p,2));
+	    genCode3(MUL,target,r1,r2);
+	    return;
+	}
+	if(op == lessSym){
+	    r1 = tmp_counter++; r2 = tmp_counter++;
+	    compileExpression(r1,getNth(p,1));
+	    compileExpression(r2,getNth(p,2));
+	    genCode3(LT,target,r1,r2);
+	    return;
+	}
+	if(op == greaterSym){
+	    r1 = tmp_counter++; r2 = tmp_counter++;
+	    compileExpression(r1,getNth(p,1));
+	    compileExpression(r2,getNth(p,2));
+	    genCode3(GT,target,r1,r2);
+	    return;
+	}
+	if(op == eqSym){
+	    compile_error("assign operator must be statement\n");
+	    return;
+	}
+	compileCallFunc(target,op,getNext(p));
     }
 }
 
-static void printFunc(AST *args)
-{
-    int l,r;
-
-    l = genString(getNth(args,0)->str);
-    r = tmp_counter++;
-    compileExpr(r,getNth(args,1));
-    genCode2(PRINTLN,r,l);
-}
-
-/*
- * global variable
- */
-void declareVariable(Symbol *vsym,AST *init_value)
-{
-    /* not implemented */
-}
-
-/* 
- * Array
- */
-void declareArray(Symbol *a, AST *size)
-{
-    /* not implemented */
-}
 
